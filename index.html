@@ -2,103 +2,218 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>3D Robot Viewer</title>
+  <title>Asteroid Intro → Portfolio</title>
   <style>
-    body { margin: 0; background: white; overflow: hidden; }
-    canvas { display: block; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+      font-family: system-ui, sans-serif;
+    }
+
+    #three-container {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      z-index: 10;
+      transition: opacity 1.5s ease;
+    }
+
+    #portfolio {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      background: #050510;
+      color: #f5f5f5;
+      padding: 4rem 8vw;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+
+    p {
+      max-width: 600px;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
+  <div id="three-container"></div>
 
-<!-- Three.js r148 (last version that supports old loaders + OrbitControls) -->
-<script src="https://unpkg.com/three@0.148.0/build/three.min.js"></script>
-<script src="https://unpkg.com/three@0.148.0/examples/js/controls/OrbitControls.js"></script>
-<script src="https://unpkg.com/three@0.148.0/examples/js/loaders/MTLLoader.js"></script>
-<script src="https://unpkg.com/three@0.148.0/examples/js/loaders/OBJLoader.js"></script>
+  <main id="portfolio">
+    <h1>Gethin – Portfolio</h1>
+    <p>
+      Your actual site goes here. The asteroid fly‑through will play once,
+      then fade out to reveal this content.
+    </p>
+  </main>
 
-<script>
-// Scene
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xffffff); // white background
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+    import { CatmullRomCurve3 } from 'https://unpkg.com/three@0.161.0/src/extras/curves/CatmullRomCurve3.js';
 
-// Camera
-const camera = new THREE.PerspectiveCamera(
-  60,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  100
-);
-camera.position.set(0, 1, 8);
+    let scene, camera, renderer, asteroids = [];
+    let curve, t = 0;
+    let startTime = performance.now();
+    const duration = 20000; // ms for full flight
+    const container = document.getElementById('three-container');
 
-// Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
-document.body.appendChild(renderer.domElement);
+    init();
+    animate();
 
-// Soft studio lighting
-scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    function init() {
+      scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x000000, 0.04);
 
-const key = new THREE.DirectionalLight(0xffffff, 0.6);
-key.position.set(5, 5, 5);
-scene.add(key);
+      camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        2000
+      );
+      camera.position.set(0, 0, 60);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.4);
-fill.position.set(-5, 2, 3);
-scene.add(fill);
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(window.devicePixelRatio);
+      container.appendChild(renderer.domElement);
 
-const back = new THREE.DirectionalLight(0xffffff, 0.3);
-back.position.set(0, -3, -5);
-scene.add(back);
+      const ambient = new THREE.AmbientLight(0x404040, 1.2);
+      scene.add(ambient);
 
-// Controls
-const controls = new THREE.OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 1.0;
+      const keyLight = new THREE.PointLight(0xffffff, 2, 400);
+      keyLight.position.set(50, 50, 50);
+      scene.add(keyLight);
 
-// Smooth zoom on load
-let zoom = 0;
+      createFlightPath();
+      createAsteroidField();
 
-// Load OBJ + MTL
-const mtlLoader = new THREE.MTLLoader();
-mtlLoader.setPath("assets/");
-mtlLoader.load("robot.mtl", (materials) => {
-  materials.preload();
+      window.addEventListener('resize', onResize);
+    }
 
-  const objLoader = new THREE.OBJLoader();
-  objLoader.setMaterials(materials);
-  objLoader.setPath("assets/");
-  objLoader.load("robot.obj", (object) => {
-    object.scale.set(1, 1, 1);
-    object.position.set(0, 0, 0);
-    scene.add(object);
-  });
-});
+    function createFlightPath() {
+      const points = [
+        new THREE.Vector3(0, 0, 60),
+        new THREE.Vector3(10, 5, 20),
+        new THREE.Vector3(-15, -10, -10),
+        new THREE.Vector3(5, 8, -40),
+        new THREE.Vector3(0, 0, -80),
+        new THREE.Vector3(0, 0, -120)
+      ];
+      curve = new CatmullRomCurve3(points);
+    }
 
-// Resize
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+    function createAsteroidField() {
+      const geo = new THREE.IcosahedronGeometry(1, 1);
+      const mat = new THREE.MeshStandardMaterial({
+        color: 0x888888,
+        roughness: 1,
+        metalness: 0.1,
+        flatShading: true
+      });
 
-// Animation loop
-function animate() {
-  requestAnimationFrame(animate);
+      const tubeRadius = 20;
+      const count = 350;
 
-  // Smooth zoom-in
-  if (zoom < 1) {
-    zoom += 0.01;
-    camera.position.lerp(new THREE.Vector3(0, 1, 4), zoom);
-  }
+      for (let i = 0; i < count; i++) {
+        const mesh = new THREE.Mesh(geo, mat);
 
-  controls.update();
-  renderer.render(scene, camera);
-}
+        const u = Math.random();
+        const center = curve.getPointAt(u);
 
-animate();
-</script>
+        const offset = new THREE.Vector3(
+          THREE.MathUtils.randFloatSpread(tubeRadius),
+          THREE.MathUtils.randFloatSpread(tubeRadius),
+          THREE.MathUtils.randFloatSpread(tubeRadius)
+        );
 
+        mesh.position.copy(center).add(offset);
+
+        const s = THREE.MathUtils.randFloat(0.5, 3);
+        mesh.scale.setScalar(s);
+
+        mesh.rotation.set(
+          Math.random() * Math.PI,
+          Math.random() * Math.PI,
+          Math.random() * Math.PI
+        );
+
+        mesh.userData.rotationSpeed = new THREE.Vector3(
+          THREE.MathUtils.randFloat(-0.01, 0.01),
+          THREE.MathUtils.randFloat(-0.01, 0.01),
+          THREE.MathUtils.randFloat(-0.01, 0.01)
+        );
+
+        scene.add(mesh);
+        asteroids.push(mesh);
+      }
+    }
+
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const elapsed = now - startTime;
+      t = Math.min(elapsed / duration, 1);
+
+      updateAsteroids();
+      updateCamera(now);
+
+      renderer.render(scene, camera);
+
+      if (t >= 1) {
+        triggerPortfolioReveal();
+      }
+    }
+
+    function updateAsteroids() {
+      for (const a of asteroids) {
+        const rs = a.userData.rotationSpeed;
+        a.rotation.x += rs.x;
+        a.rotation.y += rs.y;
+        a.rotation.z += rs.z;
+      }
+    }
+
+    function updateCamera(now) {
+      const easedT = easeInOutCubic(t);
+      const pos = curve.getPointAt(easedT);
+      const lookAhead = curve.getPointAt(Math.min(easedT + 0.01, 1));
+
+      camera.position.copy(pos);
+      camera.lookAt(lookAhead);
+
+      const tangent = curve.getTangentAt(easedT);
+      camera.rotation.z = -tangent.x * 0.6;
+
+      const time = now * 0.001;
+      const shakeAmp = (1 - easedT) * 0.3;
+      camera.position.x += Math.sin(time * 18) * 0.1 * shakeAmp;
+      camera.position.y += Math.cos(time * 23) * 0.1 * shakeAmp;
+    }
+
+    function triggerPortfolioReveal() {
+      if (!container.dataset.done) {
+        container.dataset.done = '1';
+        container.style.opacity = '0';
+        setTimeout(() => {
+          container.style.display = 'none';
+        }, 1600);
+      }
+    }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function easeInOutCubic(x) {
+      return x < 0.5
+        ? 4 * x * x * x
+        : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+  </script>
 </body>
 </html>
