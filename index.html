@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Hyperspeed Intro</title>
+  <title>Gethin Portfolio Intro</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
       overflow: hidden;
       background: #000;
+      font-family: system-ui, sans-serif;
     }
 
     #three-container {
@@ -25,27 +26,28 @@
       background: #000;
       color: #fff;
       padding: 4rem;
+      opacity: 0;
+      transition: opacity 1s ease;
     }
   </style>
 </head>
 <body>
 
+  <!-- THREE.JS INTRO -->
   <div id="three-container"></div>
 
+  <!-- YOUR SITE CONTENT -->
   <main id="portfolio">
     <h1>Gethin – Portfolio</h1>
-    <p>Your site content goes here.</p>
+    <p>Welcome to my site.</p>
   </main>
 
-  <script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.161.0/build/three.module.js';
+  <!-- THREE.JS -->
+  <script src="https://unpkg.com/three@0.161.0/build/three.min.js"></script>
 
-    let scene, camera, renderer;
-    let streaks = [];
-    const container = document.getElementById('three-container');
-
-    const DURATION = 4000;
-    let start = performance.now();
+  <script>
+    let scene, camera, renderer, streaks = [];
+    let t = 0;
 
     init();
     animate();
@@ -54,78 +56,105 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x000000);
 
-      camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2000);
-      camera.position.set(0, 0, 0);
-      camera.lookAt(0, 0, -1);
+      camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        2000
+      );
+      camera.position.set(0, 0, 50);
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
-      renderer.setSize(innerWidth, innerHeight);
-      renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
-      container.appendChild(renderer.domElement);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document.getElementById("three-container").appendChild(renderer.domElement);
 
       createStreaks();
+      createFlightPath();
 
-      addEventListener("resize", () => {
-        camera.aspect = innerWidth / innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(innerWidth, innerHeight);
-      });
+      window.addEventListener("resize", onResize);
     }
 
     function createStreaks() {
-      const geo = new THREE.BoxGeometry(0.2, 0.2, 8);
+      const geo = new THREE.BoxGeometry(0.2, 0.2, 10);
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-      const count = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 200 : 400;
-
-      for (let i = 0; i < count; i++) {
-        const m = new THREE.Mesh(geo, mat);
-        resetStreak(m, true);
-        scene.add(m);
-        streaks.push(m);
+      for (let i = 0; i < 400; i++) {
+        const streak = new THREE.Mesh(geo, mat);
+        resetStreak(streak, true);
+        scene.add(streak);
+        streaks.push(streak);
       }
     }
 
-    function resetStreak(m, initial = false) {
-      m.position.x = THREE.MathUtils.randFloatSpread(10);
-      m.position.y = THREE.MathUtils.randFloatSpread(10);
-      m.position.z = initial
-        ? THREE.MathUtils.randFloat(-200, -20)
-        : -200;
+    function resetStreak(streak, initial = false) {
+      streak.position.x = THREE.MathUtils.randFloatSpread(120);
+      streak.position.y = THREE.MathUtils.randFloatSpread(120);
+      streak.position.z = initial
+        ? THREE.MathUtils.randFloat(-400, 0)
+        : -400;
     }
 
-    function animate(now) {
+    let curve;
+    function createFlightPath() {
+      curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0, 0, 50),
+        new THREE.Vector3(20, 10, 10),
+        new THREE.Vector3(-20, -10, -20),
+        new THREE.Vector3(10, 5, -60),
+        new THREE.Vector3(0, 0, -120)
+      ]);
+    }
+
+    function animate() {
       requestAnimationFrame(animate);
 
-      const t = Math.min((now - start) / DURATION, 1);
+      // Move streaks toward camera FAST
+      streaks.forEach(s => {
+        s.position.z += 50;
+        if (s.position.z > 60) resetStreak(s);
+      });
 
-      // Fast dodging
-      const dodge = Math.sin(t * 50) * 3;
-      const dodgeY = Math.cos(t * 40) * 2;
+      // Short, fast animation
+      if (t < 1) {
+        const pos = curve.getPointAt(t);
+        const look = curve.getPointAt(Math.min(t + 0.01, 1));
 
-      camera.position.x = dodge;
-      camera.position.y = dodgeY;
-      camera.rotation.z = -dodge * 0.1;
+        // Aggressive dodging
+        const dodge = Math.sin(t * 80) * 6;
+        const dodgeY = Math.cos(t * 60) * 4;
 
-      // Move streaks toward camera
-      const speed = 40 + t * 120;
-      for (const s of streaks) {
-        s.position.z += speed;
-        if (s.position.z > 2) resetStreak(s);
+        camera.position.set(pos.x + dodge, pos.y + dodgeY, pos.z);
+        camera.lookAt(look);
+
+        t += 0.012; // ~3.5 seconds
+      } else {
+        triggerPortfolioReveal();
       }
 
       renderer.render(scene, camera);
-
-      if (t >= 1) fadeOut();
     }
 
-    function fadeOut() {
+    function triggerPortfolioReveal() {
+      const container = document.getElementById("three-container");
+      const portfolio = document.getElementById("portfolio");
+
       if (!container.dataset.done) {
         container.dataset.done = "1";
         container.style.opacity = "0";
-        setTimeout(() => (container.style.display = "none"), 900);
+        portfolio.style.opacity = "1";
+
+        setTimeout(() => {
+          container.style.display = "none";
+        }, 900);
       }
     }
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
   </script>
+
 </body>
 </html>
