@@ -9,7 +9,6 @@
       padding: 0;
       overflow: hidden;
       background: #000;
-      font-family: system-ui, sans-serif;
     }
 
     #three-container {
@@ -25,7 +24,7 @@
       min-height: 100vh;
       background: #000;
       color: #fff;
-      padding: 4rem 8vw;
+      padding: 4rem;
     }
   </style>
 </head>
@@ -45,7 +44,7 @@
     let streaks = [];
     const container = document.getElementById('three-container');
 
-    const DURATION = 4000; // 4 seconds
+    const DURATION = 4000;
     let start = performance.now();
 
     init();
@@ -57,6 +56,7 @@
 
       camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 2000);
       camera.position.set(0, 0, 0);
+      camera.lookAt(0, 0, -1);
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setSize(innerWidth, innerHeight);
@@ -73,10 +73,10 @@
     }
 
     function createStreaks() {
-      const geo = new THREE.BoxGeometry(0.05, 0.05, 3);
+      const geo = new THREE.BoxGeometry(0.2, 0.2, 8);
       const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
 
-      const count = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 250 : 500;
+      const count = /iPad|iPhone|iPod/.test(navigator.userAgent) ? 200 : 400;
 
       for (let i = 0; i < count; i++) {
         const m = new THREE.Mesh(geo, mat);
@@ -90,7 +90,7 @@
       m.position.x = THREE.MathUtils.randFloatSpread(10);
       m.position.y = THREE.MathUtils.randFloatSpread(10);
       m.position.z = initial
-        ? THREE.MathUtils.randFloat(-200, 0)
+        ? THREE.MathUtils.randFloat(-200, -20)
         : -200;
     }
 
@@ -99,18 +99,16 @@
 
       const t = Math.min((now - start) / DURATION, 1);
 
-      // Aggressive left-right dodging
-      const dodge = Math.sin(t * 40) * 2.5;
-      const dodgeY = Math.cos(t * 33) * 1.5;
+      // Fast dodging
+      const dodge = Math.sin(t * 50) * 3;
+      const dodgeY = Math.cos(t * 40) * 2;
 
       camera.position.x = dodge;
       camera.position.y = dodgeY;
-
-      // Camera banking
-      camera.rotation.z = -dodge * 0.15;
+      camera.rotation.z = -dodge * 0.1;
 
       // Move streaks toward camera
-      const speed = 20 + t * 80; // accelerates
+      const speed = 40 + t * 120;
       for (const s of streaks) {
         s.position.z += speed;
         if (s.position.z > 2) resetStreak(s);
